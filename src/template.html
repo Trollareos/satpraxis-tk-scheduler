@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="el">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
+    <meta name="color-scheme" content="light">
+    <title>Satpraxis TK Scheduler — Local Test v7</title>
+    <style>%%STYLE%%</style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__inner">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true">S</span>
+          <div><strong>SATPRAXIS</strong><span>TK Scheduler · Local Test v7</span></div>
+        </div>
+        <div id="connection-status" class="connection connection--loading">Σύνδεση…</div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <span class="eyebrow">ΔΟΚΙΜΑΣΤΙΚΗ LOCAL ΕΚΔΟΣΗ v7</span>
+        <h1>Βρες τον κατάλληλο τεχνικό</h1>
+        <p>Τοπικό app που διαβάζει το πρόγραμμα και προτείνει τεχνικό βάσει ΤΚ, ημέρας, τρέχοντος δρομολογίου και ιστορικών τάσεων. Την ώρα την επιλέγεις εσύ.</p>
+      </section>
+
+      <nav class="tabs" role="tablist" aria-label="Λειτουργίες εφαρμογής">
+        <button class="tab-button tab-button--active" type="button" data-view="schedule" role="tab" aria-selected="true">Πρόταση ραντεβού</button>
+        <button class="tab-button" type="button" data-view="tk" role="tab" aria-selected="false">Αντιστοιχίσεις ΤΚ</button>
+      </nav>
+
+      <section id="schedule-view">
+        <section class="panel search-panel">
+          <form id="appointment-form">
+            <div class="form-grid">
+              <label class="field field--postcode">
+                <span>Ταχυδρομικός κώδικας</span>
+                <input id="appointment-postcode" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="Σύνδεσε πρώτα spreadsheet" required disabled>
+              </label>
+              <label class="field">
+                <span>Ημέρα</span>
+                <select id="appointment-date" required disabled><option value="">Σύνδεσε πρώτα spreadsheet…</option></select>
+              </label>
+            </div>
+            <div class="form-actions">
+              <button id="recommend-button" class="main-button" type="submit" disabled>Βρες τεχνικό</button>
+              <span id="refresh-indicator" class="refresh-indicator" aria-live="polite"></span>
+            </div>
+          </form>
+
+          <details id="spreadsheet-settings" class="settings" open>
+            <summary>Σύνδεση spreadsheet / αλλαγή μήνα</summary>
+            <div class="settings__body">
+              <label class="field field--wide"><span>Google Sheets link</span><input id="spreadsheet-url" type="url" placeholder="Επικόλλησε εδώ το link του spreadsheet"></label>
+              <div class="settings__actions">
+                <button id="save-spreadsheet" class="secondary-action" type="button">Σύνδεση και φόρτωση</button>
+                <button id="reload-sheets" class="secondary-action" type="button" disabled>Ανανέωση ημερών</button>
+              </div>
+              <p>Δεν υπάρχει προεπιλεγμένο spreadsheet και το link δεν αποθηκεύεται. Θα το εισάγεις ξανά σε κάθε νέα εκκίνηση της εφαρμογής.</p>
+            </div>
+          </details>
+        </section>
+
+        <article id="schedule-result" class="panel result-panel" hidden></article>
+        <p id="last-refresh-note" class="last-refresh-note"></p>
+
+        <details class="panel rules-panel">
+          <summary>Κανόνες που εφαρμόζει η δοκιμαστική έκδοση</summary>
+          <div class="rules-grid">
+            <p><strong>Προτεραιότητα:</strong> πρώτα ο κατάλληλος τεχνικός με τον ίδιο ΤΚ, μετά άμεσα συμβατοί, έμμεσα συμβατοί και τέλος ιστορικές επιλογές.</p>
+            <p><strong>Ώρα και εργασία:</strong> δεν επιλέγονται στο app. Οι μετρητές εργασιών εμφανίζονται ενημερωτικά και εσύ διαλέγεις πραγματικά κενή ώρα στο spreadsheet.</p>
+            <p><strong>NOVA / Vodafone:</strong> επιβεβαιωμένη NOVA είναι εργασία με κωδικό PS… ή TAS…. Τα 1‑…, VOD… και VFS… θεωρούνται Vodafone. Κενός/άγνωστος κωδικός δεν βαφτίζεται αυτόματα NOVA.</p>
+            <p><strong>Δρομολόγιο:</strong> αν ο τεχνικός έχει ήδη τον ζητούμενο ΤΚ την επιλεγμένη ημέρα, μπορεί να τον ξαναπάρει και αυτό υπερισχύει των ημιτελών γεωγραφικών κανόνων. Χωρίς ίδιο ΤΚ, οι υπόλοιποι ΤΚ πρέπει να είναι άμεσα ή έμμεσα συμβατοί.</p>
+            <p><strong>Νέα οδηγία 06/09/2026:</strong> τα 104xx και 111xx δεν συνδυάζονται μεταξύ τους. Ο αποκλεισμός ισχύει και όταν υπάρχει ήδη ο ίδιος ΤΚ στο μικτό δρομολόγιο, καθώς και στις ιστορικές προτάσεις και τις τοπικές ενημερώσεις.</p>
+            <p><strong>Σημειώσεις:</strong> ΕΚΤΟΣ, ΑΔΕΙΑ και ΟΧΙ ΑΛΛΟ αποκλείουν. ΜΕΧΡΙ/ΕΩΣ και ΝΑ ΜΗΝ ΑΛΛΑΞΕΙ εμφανίζονται ως προειδοποιήσεις για τη χειροκίνητη επιλογή ώρας.</p>
+            <p><strong>Ιστορικό περιοχών:</strong> χρησιμοποιούνται μόνο επιβεβαιωμένες NOVA εργασίες PS/TAS από Ιούλιο έως 03/09/2026, χωρίς Vodafone και Horizontal Construction. Το ιστορικό δεν υπερισχύει του επιλεγμένου ημερήσιου δρομολογίου.</p>
+            <p><strong>Ασφάλεια:</strong> η εφαρμογή μόνο προτείνει και ανοίγει το όνομα του τεχνικού. Δεν γράφει και δεν μετακινεί τίποτα στο spreadsheet.</p>
+          </div>
+        </details>
+      </section>
+
+      <section id="tk-view" hidden>
+        <section class="panel tk-search-panel">
+          <div class="tk-toolbar">
+            <div><strong id="tk-data-status">Ενσωματωμένη βάση ΤΚ 06/09/2026</strong><span>Οι ενημερώσεις αποθηκεύονται μόνο σε αυτή τη συσκευή.</span></div>
+            <button id="import-update" class="secondary-action" type="button">Εισαγωγή ενημέρωσης JSON</button>
+            <input id="update-file" type="file" accept=".json,application/json" hidden>
+          </div>
+          <form id="tk-form" class="tk-form">
+            <label class="field field--postcode"><span>Ταχυδρομικός κώδικας</span><input id="tk-postcode" inputmode="numeric" maxlength="5" placeholder="π.χ. 12131" required></label>
+            <button class="main-button" type="submit">Αναζήτηση</button>
+          </form>
+        </section>
+        <article id="tk-result" class="panel tk-result" hidden></article>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script>%%SCRIPT%%</script>
+  </body>
+</html>
