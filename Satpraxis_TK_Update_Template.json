@@ -1,0 +1,21 @@
+{
+  "schema": "satpraxis-tk-update",
+  "schemaVersion": 1,
+  "dataVersion": "2026-09-03",
+  "mode": "merge",
+  "rules": [
+    {
+      "match": "12131",
+      "group": "Παράδειγμα ομάδας",
+      "status": "confirmed",
+      "confidence": "Επιβεβαιωμένος κανόνας",
+      "direct": ["12462", "12461", "12243"],
+      "indirect": ["12242", "13121"],
+      "excluded": [],
+      "note": "Αντικατάστησε αυτό το παράδειγμα με τα νέα δεδομένα.",
+      "bidirectional": true,
+      "priority": 10
+    }
+  ],
+  "remove": []
+}

@@ -1,0 +1,11 @@
+node_modules/
+build/
+dist/
+.test-build/
+fixtures/
+.env*
+*.xlsx
+*.xls
+*.csv
+*.log
+.DS_Store
