@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
     <meta name="color-scheme" content="light">
-    <title>Satpraxis TK Scheduler — Local Test v7</title>
+    <title>Satpraxis TK Scheduler — Local Test v8</title>
     <style>%%STYLE%%</style>
   </head>
   <body>
@@ -13,7 +13,7 @@
       <div class="topbar__inner">
         <div class="brand">
           <span class="brand__mark" aria-hidden="true">S</span>
-          <div><strong>SATPRAXIS</strong><span>TK Scheduler · Local Test v7</span></div>
+          <div><strong>SATPRAXIS</strong><span>TK Scheduler · Local Test v8</span></div>
         </div>
         <div id="connection-status" class="connection connection--loading">Σύνδεση…</div>
       </div>
@@ -21,9 +21,9 @@
 
     <main class="shell">
       <section class="hero">
-        <span class="eyebrow">ΔΟΚΙΜΑΣΤΙΚΗ LOCAL ΕΚΔΟΣΗ v7</span>
+        <span class="eyebrow">ΔΟΚΙΜΑΣΤΙΚΗ LOCAL ΕΚΔΟΣΗ v8</span>
         <h1>Βρες τον κατάλληλο τεχνικό</h1>
-        <p>Τοπικό app που διαβάζει το πρόγραμμα και προτείνει τεχνικό βάσει ΤΚ, ημέρας, τρέχοντος δρομολογίου και ιστορικών τάσεων. Την ώρα την επιλέγεις εσύ.</p>
+        <p>Διάλεξε NOVA ή Vodafone και βρες τεχνικό βάσει ΤΚ, ημέρας και τρέχοντος δρομολογίου. Για τη NOVA συνυπολογίζονται και οι ιστορικές τάσεις. Την ώρα την επιλέγεις εσύ.</p>
       </section>
 
       <nav class="tabs" role="tablist" aria-label="Λειτουργίες εφαρμογής">
@@ -35,11 +35,18 @@
         <section class="panel search-panel">
           <form id="appointment-form">
             <div class="form-grid">
+              <label class="field">
+                <span>Πάροχος</span>
+                <select id="appointment-provider" required disabled>
+                  <option value="nova">NOVA</option>
+                  <option value="vodafone">Vodafone</option>
+                </select>
+              </label>
               <label class="field field--postcode">
                 <span>Ταχυδρομικός κώδικας</span>
                 <input id="appointment-postcode" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="Σύνδεσε πρώτα spreadsheet" required disabled>
               </label>
-              <label class="field">
+              <label class="field field--day">
                 <span>Ημέρα</span>
                 <select id="appointment-date" required disabled><option value="">Σύνδεσε πρώτα spreadsheet…</option></select>
               </label>
@@ -71,11 +78,14 @@
           <div class="rules-grid">
             <p><strong>Προτεραιότητα:</strong> πρώτα ο κατάλληλος τεχνικός με τον ίδιο ΤΚ, μετά άμεσα συμβατοί, έμμεσα συμβατοί και τέλος ιστορικές επιλογές.</p>
             <p><strong>Ώρα και εργασία:</strong> δεν επιλέγονται στο app. Οι μετρητές εργασιών εμφανίζονται ενημερωτικά και εσύ διαλέγεις πραγματικά κενή ώρα στο spreadsheet.</p>
-            <p><strong>NOVA / Vodafone:</strong> επιβεβαιωμένη NOVA είναι εργασία με κωδικό PS… ή TAS…. Τα 1‑…, VOD… και VFS… θεωρούνται Vodafone. Κενός/άγνωστος κωδικός δεν βαφτίζεται αυτόματα NOVA.</p>
-            <p><strong>Δρομολόγιο:</strong> αν ο τεχνικός έχει ήδη τον ζητούμενο ΤΚ την επιλεγμένη ημέρα, μπορεί να τον ξαναπάρει και αυτό υπερισχύει των ημιτελών γεωγραφικών κανόνων. Χωρίς ίδιο ΤΚ, οι υπόλοιποι ΤΚ πρέπει να είναι άμεσα ή έμμεσα συμβατοί.</p>
+            <p><strong>NOVA / Vodafone:</strong> NOVA αναγνωρίζεται από PS… ή TAS…, Vodafone από 1‑…, VOD…, VFS… ή VF…. Αν ο κωδικός είναι άγνωστος, η πράσινη εργασία αναγνωρίζεται ως Vodafone. Ο αναγνωρισμένος κωδικός υπερισχύει του χρώματος.</p>
+            <p><strong>Τεχνικοί:</strong> και για τους δύο παρόχους εξετάζονται μόνο κόκκινοι τεχνικοί. Αν έχουν ήδη εργασίες, απαιτείται τουλάχιστον μία του επιλεγμένου παρόχου. Ο κενός τεχνικός χρειάζεται χειροκίνητη επιβεβαίωση.</p>
+            <p><strong>Δρομολόγιο:</strong> ίδιος, άμεσος ή έμμεσος ΤΚ αναζητείται στις εργασίες του επιλεγμένου παρόχου. Ο ίδιος ΤΚ υπερισχύει των ημιτελών γεωγραφικών κανόνων. Οι γεωγραφικοί αποκλεισμοί εξετάζουν ολόκληρο το δρομολόγιο, μαζί με τις εργασίες του άλλου παρόχου.</p>
             <p><strong>Νέα οδηγία 06/09/2026:</strong> τα 104xx και 111xx δεν συνδυάζονται μεταξύ τους. Ο αποκλεισμός ισχύει και όταν υπάρχει ήδη ο ίδιος ΤΚ στο μικτό δρομολόγιο, καθώς και στις ιστορικές προτάσεις και τις τοπικές ενημερώσεις.</p>
             <p><strong>Σημειώσεις:</strong> ΕΚΤΟΣ, ΑΔΕΙΑ και ΟΧΙ ΑΛΛΟ αποκλείουν. ΜΕΧΡΙ/ΕΩΣ και ΝΑ ΜΗΝ ΑΛΛΑΞΕΙ εμφανίζονται ως προειδοποιήσεις για τη χειροκίνητη επιλογή ώρας.</p>
-            <p><strong>Ιστορικό περιοχών:</strong> χρησιμοποιούνται μόνο επιβεβαιωμένες NOVA εργασίες PS/TAS από Ιούλιο έως 03/09/2026, χωρίς Vodafone και Horizontal Construction. Το ιστορικό δεν υπερισχύει του επιλεγμένου ημερήσιου δρομολογίου.</p>
+            <p><strong>Ιστορικό περιοχών:</strong> μόνο στη λειτουργία NOVA χρησιμοποιούνται επιβεβαιωμένες εργασίες PS/TAS από Ιούλιο έως 03/09/2026. Στη Vodafone η πρόταση βασίζεται στο επιλεγμένο ημερήσιο πρόγραμμα και στους κοινούς κανόνες ΤΚ.</p>
+            <p><strong>Φόρτος:</strong> οι μετρητές περιλαμβάνουν όλες τις εργασίες της ημέρας. Οι προειδοποιήσεις 4 FTTH Activation / 6 λοιπών παραμένουν στη NOVA. Δεν έχει οριστεί αντίστοιχο όριο για Vodafone.</p>
+            <p><strong>Horizontal Construction:</strong> διατηρείται ο υπάρχων περιορισμός για μη πράσινη Horizontal Construction. Η πράσινη κατασκευή εμφανίζεται με προειδοποίηση.</p>
             <p><strong>Ασφάλεια:</strong> η εφαρμογή μόνο προτείνει και ανοίγει το όνομα του τεχνικού. Δεν γράφει και δεν μετακινεί τίποτα στο spreadsheet.</p>
           </div>
         </details>

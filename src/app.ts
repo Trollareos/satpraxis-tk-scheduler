@@ -6,6 +6,7 @@ import {
   type Candidate,
   type HistoricalCounts,
   type Recommendation,
+  type SchedulingProvider,
 } from "./recommend";
 import { extractSpreadsheetId, parseSheetTabs, type SheetTab } from "./sheets";
 
@@ -39,7 +40,9 @@ let lastSchedule: ParsedSchedule | null = null;
 let lastRecommendation: Recommendation | null = null;
 let lastRefresh: Date | null = null;
 let refreshInFlight = false;
-let lastSubmitted: { postcode: string; gid: string } | null = null;
+type SearchValues = { postcode: string; gid: string; provider: SchedulingProvider };
+let lastSubmitted: SearchValues | null = null;
+let searchRevision = 0;
 let storedUpdate = loadStoredUpdate();
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -149,6 +152,7 @@ function setSchedulerReady(ready: boolean): void {
   postcode.disabled = !ready;
   postcode.placeholder = ready ? "π.χ. 17672" : "Σύνδεσε πρώτα spreadsheet";
   byId<HTMLSelectElement>("appointment-date").disabled = !ready;
+  byId<HTMLSelectElement>("appointment-provider").disabled = !ready;
   byId<HTMLButtonElement>("recommend-button").disabled = !ready;
   byId<HTMLButtonElement>("reload-sheets").disabled = !ready;
 }
@@ -215,19 +219,29 @@ async function loadLiveSchedule(gid: string): Promise<ParsedSchedule> {
   return parseScheduleByName(await response.arrayBuffer(), sheet.name);
 }
 
-function currentFormValues(): { postcode: string; gid: string } | null {
+function currentFormValues(): SearchValues | null {
   const postcode = normalizePostcode(byId<HTMLInputElement>("appointment-postcode").value);
   const gid = byId<HTMLSelectElement>("appointment-date").value;
+  const provider = byId<HTMLSelectElement>("appointment-provider").value;
   byId<HTMLInputElement>("appointment-postcode").value = postcode;
-  if (postcode.length !== 5 || !gid) return null;
-  return { postcode, gid };
+  if (postcode.length !== 5 || !gid || (provider !== "nova" && provider !== "vodafone")) return null;
+  return { postcode, gid, provider };
+}
+
+function invalidateRecommendation(): void {
+  searchRevision += 1;
+  lastSubmitted = null;
+  lastSchedule = null;
+  lastRecommendation = null;
+  byId<HTMLElement>("schedule-result").hidden = true;
+  byId<HTMLElement>("last-refresh-note").textContent = "";
 }
 
 async function performRecommendation(automatic = false): Promise<void> {
   if (refreshInFlight) return;
   const values = automatic ? lastSubmitted : currentFormValues();
   if (!values) {
-    showToast("Συμπλήρωσε έναν έγκυρο πενταψήφιο ΤΚ.", "error");
+    if (!automatic) showToast("Συμπλήρωσε έναν έγκυρο πενταψήφιο ΤΚ.", "error");
     return;
   }
   if (automatic) {
@@ -235,16 +249,23 @@ async function performRecommendation(automatic = false): Promise<void> {
     if (!current || JSON.stringify(current) !== JSON.stringify(values)) return;
   }
   refreshInFlight = true;
+  const revision = searchRevision;
+  const sourceId = spreadsheetId;
+  const isCurrent = (): boolean => revision === searchRevision && sourceId === spreadsheetId &&
+    JSON.stringify(currentFormValues()) === JSON.stringify(values);
   setLoading(true, automatic);
   try {
-    lastSchedule = await loadLiveSchedule(values.gid);
-    lastRecommendation = recommendTechnicians(lastSchedule, values.postcode, HISTORY, resolvePostcode);
+    const schedule = await loadLiveSchedule(values.gid);
+    if (!isCurrent()) return;
+    lastSchedule = schedule;
+    lastRecommendation = recommendTechnicians(schedule, values.postcode, HISTORY, resolvePostcode, values.provider);
     lastSubmitted = values;
     lastRefresh = new Date();
     renderRecommendation(lastRecommendation, selectedSheet());
     setConnection("online", "Live · τελευταία ανάγνωση " + lastRefresh.toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     if (!automatic) byId<HTMLElement>("schedule-result").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
+    if (!isCurrent()) return;
     const message = error instanceof Error ? error.message : "Άγνωστο σφάλμα ανάγνωσης.";
     setConnection("error", "Δεν έγινε live ενημέρωση");
     renderScheduleError(message);
@@ -276,6 +297,7 @@ function candidateCopyText(candidate: Candidate, result: Recommendation, sheet: 
   return [
     "Πρόταση τεχνικού: " + candidate.technician.name,
     "Ημέρα: " + (sheet?.name || "—"),
+    "Πάροχος: " + providerLabel(result.provider),
     "ΤΚ: " + result.postcode,
     "Ώρα: επιλέγεται χειροκίνητα στο spreadsheet",
     "Αιτιολόγηση: " + candidate.reasons.join(" "),
@@ -320,8 +342,8 @@ function candidateCard(candidate: Candidate, result: Recommendation, sheet: Shee
 
   const metrics = element("div", "metrics");
   metrics.append(
-    element("span", "metric", candidate.activationCount + "/4 FTTH Activation"),
-    element("span", "metric", candidate.otherCount + "/6 λοιπές"),
+    element("span", "metric", candidate.activationCount + (result.provider === "nova" ? "/4" : "") + " FTTH Activation"),
+    element("span", "metric", candidate.otherCount + (result.provider === "nova" ? "/6" : "") + " λοιπές"),
     element("span", "metric", "Η ώρα επιλέγεται χειροκίνητα"),
   );
   card.append(metrics);
@@ -367,7 +389,7 @@ function renderRecommendation(result: Recommendation, sheet: SheetTab | null): v
   const head = element("div", "result-head");
   const title = element("div");
   title.append(
-    element("span", "eyebrow", "LIVE ΑΠΟΤΕΛΕΣΜΑ"),
+    element("span", "eyebrow", "LIVE ΑΠΟΤΕΛΕΣΜΑ · " + providerLabel(result.provider)),
     element("h2", "", result.postcode),
     element("p", "muted", (sheet?.name || "") + " · " + (lastSchedule?.technicians.filter((item) => item.red).length || 0) + " κόκκινοι τεχνικοί ελέγχθηκαν"),
   );
@@ -379,6 +401,9 @@ function renderRecommendation(result: Recommendation, sheet: SheetTab | null): v
 
   const manualNote = element("p", "manual-note", "Η εφαρμογή προτείνει τεχνικό βάσει ημέρας και περιοχής. Εσύ επιλέγεις χειροκίνητα την πραγματικά κενή ώρα και ελέγχεις τις σημειώσεις πριν την καταχώριση.");
   output.append(manualNote);
+  if (result.provider === "vodafone") {
+    output.append(element("p", "muted", "Ελέγχονται οι κόκκινοι τεχνικοί. Οι μετρητές αφορούν όλες τις εργασίες της ημέρας. Δεν εφαρμόζεται το ιστορικό NOVA ούτε όρια φόρτου Vodafone."));
+  }
 
   if (!result.candidates.length) {
     const empty = element("section", "empty-result");
@@ -546,7 +571,11 @@ function setup(): void {
     event.preventDefault();
     void performRecommendation(false);
   });
+  byId<HTMLSelectElement>("appointment-provider").addEventListener("change", invalidateRecommendation);
+  byId<HTMLSelectElement>("appointment-date").addEventListener("change", invalidateRecommendation);
+  byId<HTMLInputElement>("appointment-postcode").addEventListener("input", invalidateRecommendation);
   byId<HTMLButtonElement>("reload-sheets").addEventListener("click", async () => {
+    invalidateRecommendation();
     try {
       await fetchSheets();
       showToast("Η λίστα ημερών ανανεώθηκε.");
@@ -562,7 +591,7 @@ function setup(): void {
     }
     const hadConnection = Boolean(spreadsheetId && sheets.length);
     setSchedulerReady(false);
-    lastSubmitted = null;
+    invalidateRecommendation();
     try {
       await fetchSheets(id);
       byId<HTMLDetailsElement>("spreadsheet-settings").open = false;

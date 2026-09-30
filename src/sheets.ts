@@ -11,10 +11,14 @@ export function extractSpreadsheetId(value: string): string | null {
 
 function parseSheetDate(name: string): string | null {
   const clean = name.replace(/\\\//g, "/");
-  const match = clean.match(/(?:^|\s)(\d{1,2})[./-](\d{1,2})(?:\s|$)/) ||
+  const match = clean.match(/(?:^|\s)(\d{1,2})[.,/-](\d{1,2})(?:\s|$)/) ||
     clean.match(/(?:^|\s)(\d{1,2})(\d{2})(?:\s|$)/);
   if (!match) return null;
-  return "2026-" + String(Number(match[2])).padStart(2, "0") + "-" + String(Number(match[1])).padStart(2, "0");
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const date = new Date(Date.UTC(2026, month - 1, day));
+  if (date.getUTCFullYear() !== 2026 || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return "2026-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
 }
 
 export function parseSheetTabs(html: string): SheetTab[] {

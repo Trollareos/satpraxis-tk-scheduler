@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = import.meta.dirname;
-const output = resolve(root, "dist/Satpraxis_TK_Scheduler_Test_v7");
+const output = resolve(root, "dist/Satpraxis_TK_Scheduler_Test_v8");
 await build({
   entryPoints: [resolve(root, "src/app.ts")],
   outfile: resolve(root, "build/app.js"),
