@@ -8,7 +8,7 @@ import {
   type Recommendation,
   type SchedulingProvider,
 } from "./recommend";
-import { extractSpreadsheetId, parseSheetTabs, type SheetTab } from "./sheets";
+import { detectScheduleYear, extractSpreadsheetId, isScheduleYear, parseSheetTabs, type SheetTab } from "./sheets";
 
 type ImportedRule = {
   match: string;
@@ -36,11 +36,14 @@ const REFRESH_INTERVAL = 60_000;
 
 let spreadsheetId = "";
 let sheets: SheetTab[] = [];
+let sheetCatalogHtml = "";
+let calendarYear = new Date().getFullYear();
+let manualCalendarYear = false;
 let lastSchedule: ParsedSchedule | null = null;
 let lastRecommendation: Recommendation | null = null;
 let lastRefresh: Date | null = null;
 let refreshInFlight = false;
-type SearchValues = { postcode: string; gid: string; provider: SchedulingProvider };
+type SearchValues = { postcode: string; gid: string; provider: SchedulingProvider; year: number };
 let lastSubmitted: SearchValues | null = null;
 let searchRevision = 0;
 let storedUpdate = loadStoredUpdate();
@@ -159,26 +162,65 @@ function setSchedulerReady(ready: boolean): void {
 
 async function fetchSheets(targetSpreadsheetId = spreadsheetId): Promise<void> {
   if (!targetSpreadsheetId) throw new Error("Βάλε πρώτα το link του Google spreadsheet.");
+  readCalendarYear();
   setConnection("loading", "Σύνδεση με το spreadsheet…");
   const response = await fetch("/api/sheets?spreadsheetId=" + encodeURIComponent(targetSpreadsheetId) + "&_=" + Date.now(), { cache: "no-store" });
   if (!response.ok) throw new Error(await response.text() || "Δεν ήταν δυνατή η ανάγνωση της λίστας ημερών.");
-  const nextSheets = parseSheetTabs(await response.text());
+  const html = await response.text();
+  const year = manualCalendarYear ? readCalendarYear() : detectScheduleYear(html);
+  const nextSheets = parseSheetTabs(html, year);
   if (!nextSheets.length) throw new Error("Δεν βρέθηκαν φύλλα με ημερομηνία. Έλεγξε ότι το link του spreadsheet είναι προσβάσιμο.");
+  const keepPrevious = spreadsheetId === targetSpreadsheetId;
   spreadsheetId = targetSpreadsheetId;
+  sheetCatalogHtml = html;
+  calendarYear = year;
+  byId<HTMLInputElement>("spreadsheet-year").value = String(year);
   sheets = nextSheets;
-  populateDateSelect();
+  populateDateSelect(keepPrevious);
   setSchedulerReady(true);
-  setConnection("online", "Live σύνδεση · " + sheets.length + " ημέρες διαθέσιμες");
+  showCalendarConnection();
 }
 
-function populateDateSelect(): void {
+function readCalendarYear(): number {
+  const year = Number(byId<HTMLInputElement>("spreadsheet-year").value);
+  if (!isScheduleYear(year)) throw new Error("Βάλε έγκυρο τετραψήφιο έτος προγράμματος.");
+  return year;
+}
+
+function showCalendarConnection(): void {
+  const years = [...new Set(sheets.map(sheet => sheet.date.slice(0, 4)))].join(" / ");
+  setConnection("online", "Live σύνδεση · " + sheets.length + " ημέρες διαθέσιμες · " + years);
+}
+
+function changeCalendarYear(automatic = false): void {
+  invalidateRecommendation();
+  try {
+    const year = automatic ? detectScheduleYear(sheetCatalogHtml) : readCalendarYear();
+    if (sheetCatalogHtml) {
+      const nextSheets = parseSheetTabs(sheetCatalogHtml, year);
+      if (!nextSheets.length) throw new Error("Δεν βρέθηκαν έγκυρες ημερομηνίες για το επιλεγμένο έτος.");
+      sheets = nextSheets;
+      populateDateSelect();
+      showCalendarConnection();
+    }
+    calendarYear = year;
+    manualCalendarYear = !automatic;
+    byId<HTMLInputElement>("spreadsheet-year").value = String(year);
+    showToast("Έτος προγράμματος: " + year + ".");
+  } catch (error) {
+    byId<HTMLInputElement>("spreadsheet-year").value = String(calendarYear);
+    showToast(error instanceof Error ? error.message : "Μη έγκυρο έτος.", "error");
+  }
+}
+
+function populateDateSelect(keepPrevious = true): void {
   const select = byId<HTMLSelectElement>("appointment-date");
-  const previous = select.value;
+  const previous = keepPrevious ? select.value : "";
   select.replaceChildren();
   for (const sheet of sheets) {
     const option = document.createElement("option");
     option.value = sheet.gid;
-    option.textContent = sheet.name;
+    option.textContent = sheet.name + " · " + sheet.date.slice(0, 4);
     option.dataset.date = sheet.date;
     select.append(option);
   }
@@ -224,8 +266,8 @@ function currentFormValues(): SearchValues | null {
   const gid = byId<HTMLSelectElement>("appointment-date").value;
   const provider = byId<HTMLSelectElement>("appointment-provider").value;
   byId<HTMLInputElement>("appointment-postcode").value = postcode;
-  if (postcode.length !== 5 || !gid || (provider !== "nova" && provider !== "vodafone")) return null;
-  return { postcode, gid, provider };
+  if (postcode.length !== 5 || !gid || Number(byId<HTMLInputElement>("spreadsheet-year").value) !== calendarYear || (provider !== "nova" && provider !== "vodafone")) return null;
+  return { postcode, gid, provider, year: calendarYear };
 }
 
 function invalidateRecommendation(): void {
@@ -241,7 +283,7 @@ async function performRecommendation(automatic = false): Promise<void> {
   if (refreshInFlight) return;
   const values = automatic ? lastSubmitted : currentFormValues();
   if (!values) {
-    if (!automatic) showToast("Συμπλήρωσε έναν έγκυρο πενταψήφιο ΤΚ.", "error");
+    if (!automatic) showToast("Έλεγξε τον πενταψήφιο ΤΚ, την ημέρα και το έτος προγράμματος.", "error");
     return;
   }
   if (automatic) {
@@ -296,7 +338,7 @@ function providerLabel(provider: "nova" | "vodafone" | "unknown"): string {
 function candidateCopyText(candidate: Candidate, result: Recommendation, sheet: SheetTab | null): string {
   return [
     "Πρόταση τεχνικού: " + candidate.technician.name,
-    "Ημέρα: " + (sheet?.name || "—"),
+    "Ημέρα: " + (sheet ? sheet.name + " · " + sheet.date.split("-").reverse().join("/") : "—"),
     "Πάροχος: " + providerLabel(result.provider),
     "ΤΚ: " + result.postcode,
     "Ώρα: επιλέγεται χειροκίνητα στο spreadsheet",
@@ -391,7 +433,7 @@ function renderRecommendation(result: Recommendation, sheet: SheetTab | null): v
   title.append(
     element("span", "eyebrow", "LIVE ΑΠΟΤΕΛΕΣΜΑ · " + providerLabel(result.provider)),
     element("h2", "", result.postcode),
-    element("p", "muted", (sheet?.name || "") + " · " + (lastSchedule?.technicians.filter((item) => item.red).length || 0) + " κόκκινοι τεχνικοί ελέγχθηκαν"),
+    element("p", "muted", (sheet ? sheet.name + " · " + sheet.date.split("-").reverse().join("/") : "") + " · " + (lastSchedule?.technicians.filter((item) => item.red).length || 0) + " κόκκινοι τεχνικοί ελέγχθηκαν"),
   );
   const refresh = element("button", "refresh-button", "Ανανέωση τώρα");
   refresh.type = "button";
@@ -561,6 +603,7 @@ function switchView(view: "schedule" | "tk"): void {
 function setup(): void {
   try { localStorage.removeItem("satpraxis-scheduler-sheet-v1"); } catch { }
   byId<HTMLInputElement>("spreadsheet-url").value = "";
+  byId<HTMLInputElement>("spreadsheet-year").value = String(calendarYear);
   setSchedulerReady(false);
   setConnection("idle", "Δεν έχει επιλεγεί spreadsheet");
   updateTkDataStatus();
@@ -574,6 +617,9 @@ function setup(): void {
   byId<HTMLSelectElement>("appointment-provider").addEventListener("change", invalidateRecommendation);
   byId<HTMLSelectElement>("appointment-date").addEventListener("change", invalidateRecommendation);
   byId<HTMLInputElement>("appointment-postcode").addEventListener("input", invalidateRecommendation);
+  byId<HTMLInputElement>("spreadsheet-year").addEventListener("input", invalidateRecommendation);
+  byId<HTMLInputElement>("spreadsheet-year").addEventListener("change", () => changeCalendarYear());
+  byId<HTMLButtonElement>("detect-year").addEventListener("click", () => changeCalendarYear(true));
   byId<HTMLButtonElement>("reload-sheets").addEventListener("click", async () => {
     invalidateRecommendation();
     try {

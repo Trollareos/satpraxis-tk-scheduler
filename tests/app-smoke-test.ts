@@ -36,13 +36,22 @@ elements.get("schedule-result")!.hidden = true;
 const storage = new Map([["satpraxis-scheduler-sheet-v1", "OLD-ID"]]);
 const clipboard: string[] = [];
 const calls: string[] = [];
-const workbook = scheduleFixture();
+let workbook = scheduleFixture();
+let catalogHtml = '<title>ΟΚΤΩΒΡΙΟΣ 26.xlsx</title>items.push({name: "ΠΕΜ 1,10", gid: "101"});items.push({name: "ΠΑΡ 2,10", gid: "102"});';
+let clock = "2026-12-31T12:00:00Z";
+class AppDate extends Date {
+  constructor(value?: string | number) { super(value === undefined ? clock : value); }
+  static now() { return new Date(clock).getTime(); }
+  getFullYear() { return this.getUTCFullYear(); }
+  getMonth() { return this.getUTCMonth(); }
+  getDate() { return this.getUTCDate(); }
+}
 let timer: Function;
 let deferNext = false;
 let release: (() => void) | null = null;
 const fetch = async (url: string) => {
   calls.push(url);
-  if (url.startsWith("/api/sheets?")) return { ok: true, text: async () => 'items.push({name: "ΠΕΜ 1,10", gid: "101"});items.push({name: "ΠΑΡ 2,10", gid: "102"});' };
+  if (url.startsWith("/api/sheets?")) return { ok: true, text: async () => catalogHtml };
   assert(url.startsWith("/api/sheet?"));
   if (deferNext) {
     deferNext = false;
@@ -54,7 +63,7 @@ const context: Record<string, unknown> = {
   document: { getElementById: (id: string) => elements.get(id), createElement: (tag: string) => new FakeElement(tag), querySelectorAll: () => [] },
   localStorage: { getItem: (key: string) => storage.get(key) || null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) },
   navigator: { clipboard: { writeText: async (value: string) => { clipboard.push(value); } } },
-  fetch, console, TextDecoder, Uint8Array, ArrayBuffer, Blob, Date,
+  fetch, console, TextDecoder, Uint8Array, ArrayBuffer, Blob, Date: AppDate,
   setTimeout: () => 1, clearTimeout() {}, setInterval: (fn: Function) => { timer = fn; return 1; },
 };
 context.window = context;
@@ -121,4 +130,68 @@ assert.equal(el("schedule-result").hidden, true);
 await submit();
 assert.match(visible(), /ΠΑΡ 2,10/);
 assert.equal(storage.has("satpraxis-scheduler-sheet-v1"), false);
-console.log("PASS: provider selection, October dates, copy, refresh and stale-request protection in the app UI.");
+
+assert.equal(el("spreadsheet-year").value, "2026");
+const beforeYearChange = calls.length;
+el("spreadsheet-year").value = "2027";
+await el("spreadsheet-year").emit("input");
+await el("spreadsheet-year").emit("change");
+assert.equal(el("schedule-result").hidden, true);
+assert.equal(calls.length, beforeYearChange, "changing a year reuses the loaded tab catalogue");
+assert.equal(el("appointment-date").children[0].dataset.date, "2027-10-01");
+assert.match(el("appointment-date").children[0].textContent, /2027/);
+timer!(); await tick();
+assert.equal(calls.length, beforeYearChange, "year changes cancel the old automatic refresh query");
+await submit();
+assert.match(visible(), /02\/10\/2027/);
+await descendants(el("schedule-result")).find(n => n.tagName === "button" && n.textContent === "Αντιγραφή πρότασης")!.emit("click");
+assert.match(clipboard.at(-1)!, /02\/10\/2027/);
+
+el("spreadsheet-year").value = "2027.5";
+await el("spreadsheet-year").emit("change");
+assert.equal(el("spreadsheet-year").value, "2027");
+assert.match(el("toast").textContent, /έγκυρο τετραψήφιο έτος/);
+assert.equal(el("schedule-result").hidden, true);
+
+deferNext = true;
+await submit();
+el("spreadsheet-year").value = "2030";
+await el("spreadsheet-year").emit("change");
+el("spreadsheet-year").value = "2027";
+await el("spreadsheet-year").emit("change");
+release!(); await tick();
+assert.equal(el("schedule-result").hidden, true, "a year change cancels a pending result even after the original year is restored");
+
+await el("detect-year").emit("click");
+assert.equal(el("spreadsheet-year").value, "2026", "automatic year can be restored after a manual override");
+catalogHtml = '<title>ΙΑΝΟΥΑΡΙΟΣ 27.xlsx</title>items.push({name: "ΠΕΜ 31,12", gid: "101"});items.push({name: "ΠΑΡ 1,01", gid: "102"});';
+workbook = scheduleFixture(["ΠΕΜ 31,12", "ΠΑΡ 1,01"]);
+el("spreadsheet-url").value = "https://docs.google.com/spreadsheets/d/SYNTHETIC_SCHEDULE_ID_0002/edit";
+await el("save-spreadsheet").emit("click");
+assert.equal(el("appointment-date").value, "101", "a new workbook chooses today rather than a reused gid from the old workbook");
+assert.deepEqual(el("appointment-date").children.map(option => option.dataset.date), ["2026-12-31", "2027-01-01"]);
+clock = "2027-01-01T12:00:00Z";
+el("spreadsheet-url").value = "https://docs.google.com/spreadsheets/d/SYNTHETIC_SCHEDULE_ID_0003/edit";
+await el("save-spreadsheet").emit("click");
+assert.equal(el("appointment-date").value, "102", "today is selected correctly after New Year");
+await submit();
+assert.match(visible(), /01\/01\/2027/);
+
+catalogHtml = 'items.push({name: "ΠΑΡ 1,01", gid: "101"});items.push({name: "ΣΑΒ 2,01", gid: "102"});';
+workbook = scheduleFixture(["ΠΑΡ 1,01", "ΣΑΒ 2,01"]);
+el("spreadsheet-url").value = "https://docs.google.com/spreadsheets/d/SYNTHETIC_SCHEDULE_ID_0004/edit";
+await el("save-spreadsheet").emit("click");
+assert.equal(el("spreadsheet-year").value, "2027", "the fallback year advances with the computer clock");
+assert.equal(el("appointment-date").children[0].dataset.date, "2027-01-01");
+await submit();
+assert.match(visible(), /01\/01\/2027/);
+
+catalogHtml = '<title>Πρόγραμμα 2026</title>items.push({name: "ΤΡΙ 29.02.2028", gid: "101"});items.push({name: "ΤΕΤ 1.03.2028", gid: "102"});';
+workbook = scheduleFixture(["ΤΡΙ 29.02.2028", "ΤΕΤ 1.03.2028"]);
+el("spreadsheet-url").value = "https://docs.google.com/spreadsheets/d/SYNTHETIC_SCHEDULE_ID_0005/edit";
+await el("save-spreadsheet").emit("click");
+assert.equal(el("spreadsheet-year").value, "2028", "explicit tab years override an older workbook title");
+assert.equal(el("appointment-date").children[0].dataset.date, "2028-02-29");
+await submit();
+assert.match(visible(), /29\/02\/2028/);
+console.log("PASS: provider selection, dynamic years, December/January, copy, refresh and stale-request protection in the app UI.");

@@ -74,7 +74,7 @@ function Valid-SpreadsheetId([string]$value) {
 
 $url = "http://127.0.0.1:$port/"
 Write-Host ""
-Write-Host "Satpraxis TK Scheduler v8 is running locally." -ForegroundColor Green
+Write-Host "Satpraxis TK Scheduler v9 is running locally." -ForegroundColor Green
 Write-Host "Open: $url"
 Write-Host "Keep this window open. Close it to stop the app." -ForegroundColor Yellow
 Write-Host ""

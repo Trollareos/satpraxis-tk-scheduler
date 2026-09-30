@@ -44,7 +44,7 @@ class FakeElement extends FakeNode {
   scrollIntoView() {}
 }
 
-const html = await readFile(new URL("../../dist/Satpraxis_TK_Scheduler_Test_v8/Satpraxis_TK_Scheduler_Test.html", import.meta.url), "utf8");
+const html = await readFile(new URL("../../dist/Satpraxis_TK_Scheduler_Test_v9/Satpraxis_TK_Scheduler_Test.html", import.meta.url), "utf8");
 assert.match(html, /Satpraxis TK Scheduler/);
 assert.match(html, /connect-src 'self'/);
 assert.doesNotMatch(html, /chatgpt/i);
@@ -61,7 +61,7 @@ const tagById = {
   "appointment-form": "form", "appointment-postcode": "input", "appointment-date": "select", "appointment-provider": "select",
   "recommend-button": "button",
   "refresh-indicator": "span", "schedule-result": "article", "last-refresh-note": "p",
-  "spreadsheet-settings": "details", "spreadsheet-url": "input", "reload-sheets": "button", "save-spreadsheet": "button",
+  "spreadsheet-settings": "details", "spreadsheet-url": "input", "spreadsheet-year": "input", "detect-year": "button", "reload-sheets": "button", "save-spreadsheet": "button",
   "tk-data-status": "strong", "tk-form": "form", "tk-postcode": "input", "tk-result": "article",
   "import-update": "button", "update-file": "input", toast: "div",
 };

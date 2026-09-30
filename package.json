@@ -1,6 +1,6 @@
 {
   "name": "satpraxis-tk-scheduler",
-  "version": "8.0.0",
+  "version": "9.0.0",
   "private": true,
   "type": "module",
   "description": "Local Windows scheduler with live Google Sheets reading and postcode matching.",

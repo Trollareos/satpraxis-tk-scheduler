@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
     <meta name="color-scheme" content="light">
-    <title>Satpraxis TK Scheduler — Local Test v8</title>
+    <title>Satpraxis TK Scheduler — Local Test v9</title>
     <style>%%STYLE%%</style>
   </head>
   <body>
@@ -13,7 +13,7 @@
       <div class="topbar__inner">
         <div class="brand">
           <span class="brand__mark" aria-hidden="true">S</span>
-          <div><strong>SATPRAXIS</strong><span>TK Scheduler · Local Test v8</span></div>
+          <div><strong>SATPRAXIS</strong><span>TK Scheduler · Local Test v9</span></div>
         </div>
         <div id="connection-status" class="connection connection--loading">Σύνδεση…</div>
       </div>
@@ -21,7 +21,7 @@
 
     <main class="shell">
       <section class="hero">
-        <span class="eyebrow">ΔΟΚΙΜΑΣΤΙΚΗ LOCAL ΕΚΔΟΣΗ v8</span>
+        <span class="eyebrow">ΔΟΚΙΜΑΣΤΙΚΗ LOCAL ΕΚΔΟΣΗ v9</span>
         <h1>Βρες τον κατάλληλο τεχνικό</h1>
         <p>Διάλεξε NOVA ή Vodafone και βρες τεχνικό βάσει ΤΚ, ημέρας και τρέχοντος δρομολογίου. Για τη NOVA συνυπολογίζονται και οι ιστορικές τάσεις. Την ώρα την επιλέγεις εσύ.</p>
       </section>
@@ -60,11 +60,16 @@
           <details id="spreadsheet-settings" class="settings" open>
             <summary>Σύνδεση spreadsheet / αλλαγή μήνα</summary>
             <div class="settings__body">
-              <label class="field field--wide"><span>Google Sheets link</span><input id="spreadsheet-url" type="url" placeholder="Επικόλλησε εδώ το link του spreadsheet"></label>
+              <div class="settings__fields">
+                <label class="field field--wide"><span>Google Sheets link</span><input id="spreadsheet-url" type="url" placeholder="Επικόλλησε εδώ το link του spreadsheet"></label>
+                <label class="field"><span>Έτος προγράμματος</span><input id="spreadsheet-year" type="number" min="1000" max="9999" step="1" required></label>
+              </div>
               <div class="settings__actions">
                 <button id="save-spreadsheet" class="secondary-action" type="button">Σύνδεση και φόρτωση</button>
                 <button id="reload-sheets" class="secondary-action" type="button" disabled>Ανανέωση ημερών</button>
+                <button id="detect-year" class="secondary-action" type="button">Αυτόματο έτος</button>
               </div>
+              <p>Το έτος αναγνωρίζεται από πλήρεις ημερομηνίες ή τον τίτλο του spreadsheet. Αν χρειάζεται, διόρθωσέ το. Για πρόγραμμα που περνά από Δεκέμβριο σε Ιανουάριο, βάλε το έτος του Δεκεμβρίου.</p>
               <p>Δεν υπάρχει προεπιλεγμένο spreadsheet και το link δεν αποθηκεύεται. Θα το εισάγεις ξανά σε κάθε νέα εκκίνηση της εφαρμογής.</p>
             </div>
           </details>
@@ -76,6 +81,7 @@
         <details class="panel rules-panel">
           <summary>Κανόνες που εφαρμόζει η δοκιμαστική έκδοση</summary>
           <div class="rules-grid">
+            <p><strong>Μελλοντικά προγράμματα:</strong> πλήρεις ημερομηνίες υπερισχύουν του έτους προγράμματος. Χωρίς άλλη ένδειξη χρησιμοποιείται το τρέχον έτος του υπολογιστή, που μπορείς να αλλάξεις. Η μετάβαση Δεκεμβρίου–Ιανουαρίου ακολουθεί τη σειρά των φύλλων.</p>
             <p><strong>Προτεραιότητα:</strong> πρώτα ο κατάλληλος τεχνικός με τον ίδιο ΤΚ, μετά άμεσα συμβατοί, έμμεσα συμβατοί και τέλος ιστορικές επιλογές.</p>
             <p><strong>Ώρα και εργασία:</strong> δεν επιλέγονται στο app. Οι μετρητές εργασιών εμφανίζονται ενημερωτικά και εσύ διαλέγεις πραγματικά κενή ώρα στο spreadsheet.</p>
             <p><strong>NOVA / Vodafone:</strong> NOVA αναγνωρίζεται από PS… ή TAS…, Vodafone από 1‑…, VOD…, VFS… ή VF…. Αν ο κωδικός είναι άγνωστος, η πράσινη εργασία αναγνωρίζεται ως Vodafone. Ο αναγνωρισμένος κωδικός υπερισχύει του χρώματος.</p>

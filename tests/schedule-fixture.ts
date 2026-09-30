@@ -1,7 +1,7 @@
 import { strToU8, zipSync } from "fflate";
 
 // Synthetic schedule: no customer details or production workbook contents.
-export function scheduleFixture(): Uint8Array {
+export function scheduleFixture(names = ["ΠΕΜ 1,10", "ΠΑΡ 2,10"]): Uint8Array {
   const cell = (reference: string, value: string, style = 0) => `<c r="${reference}" s="${style}" t="inlineStr"><is><t>${value}</t></is></c>`;
   const technicians = [
     { name: "NOVA ΤΕΧΝΙΚΟΣ", red: true, jobs: [{ code: "PS-TEST", postcode: "17672", green: false }] },
@@ -25,7 +25,7 @@ export function scheduleFixture(): Uint8Array {
   });
   const worksheet = `<worksheet><sheetData>${rows.join("")}</sheetData><mergeCells>${merges.join("")}</mergeCells></worksheet>`;
   return zipSync(Object.fromEntries(Object.entries({
-    "xl/workbook.xml": '<workbook><sheets><sheet name="ΠΕΜ 1,10" r:id="rId1"/><sheet name="ΠΑΡ 2,10" r:id="rId2"/></sheets></workbook>',
+    "xl/workbook.xml": `<workbook><sheets><sheet name="${names[0]}" r:id="rId1"/><sheet name="${names[1]}" r:id="rId2"/></sheets></workbook>`,
     "xl/_rels/workbook.xml.rels": '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>',
     "xl/styles.xml": '<styleSheet><fills><fill><patternFill/></fill><fill><patternFill><fgColor rgb="FFFF0000"/></patternFill></fill><fill><patternFill><fgColor rgb="FF00FF00"/></patternFill></fill></fills><cellXfs><xf fillId="0"/><xf fillId="1"/><xf fillId="2"/></cellXfs></styleSheet>',
     "xl/worksheets/sheet1.xml": worksheet,
