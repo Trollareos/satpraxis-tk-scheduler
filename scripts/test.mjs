@@ -7,7 +7,8 @@ const root = resolve(import.meta.dirname, "..");
 const output = resolve(root, ".test-build");
 await mkdir(output, { recursive: true });
 try {
-  for (const name of ["tk-data.test", "rules-test", "family-separation-test"]) {
+  await build({ entryPoints: [resolve(root, "src/app.ts")], outfile: resolve(output, "app.js"), bundle: true, platform: "browser", format: "iife", target: "es2020" });
+  for (const name of ["tk-data.test", "rules-test", "family-separation-test", "provider-scheduling-test", "provider-parser-test", "sheets-test", "app-smoke-test"]) {
     const outfile = resolve(output, `${name}.mjs`);
     await build({ entryPoints: [resolve(root, "tests", `${name}.ts`)], outfile, bundle: true, platform: "node", format: "esm", target: "node22" });
     const result = spawnSync(process.execPath, [outfile], { cwd: root, stdio: "inherit" });

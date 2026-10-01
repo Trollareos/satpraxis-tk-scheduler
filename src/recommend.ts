@@ -3,11 +3,13 @@ import {
   canonicalTechnicianName,
   normalizeGreek,
   type ParsedSchedule,
+  type JobProvider,
   type ScheduleJob,
   type TechnicianDay,
 } from "./xlsx";
 
 export type CandidateMatch = "special" | "exact" | "direct" | "indirect" | "history" | "empty";
+export type SchedulingProvider = Exclude<JobProvider, "unknown">;
 
 export type HistoricalCounts = {
   generatedThrough: string;
@@ -29,6 +31,7 @@ export type Candidate = {
 
 export type Recommendation = {
   postcode: string;
+  provider: SchedulingProvider;
   rule: SearchResult;
   candidates: Candidate[];
   rejected: Candidate[];
@@ -59,14 +62,6 @@ export function patternMatches(postcode: string, rawPattern: string): boolean {
 
 function isActivation(job: ScheduleJob): boolean {
   return normalizeGreek(job.type).includes("FTTH ACTIVATION");
-}
-
-function isNova(job: ScheduleJob): boolean {
-  return job.provider === "nova";
-}
-
-function isVodafone(job: ScheduleJob): boolean {
-  return job.provider === "vodafone";
 }
 
 function isHorizontal(job: ScheduleJob): boolean {
@@ -116,16 +111,18 @@ function scoreRoute(
   postcode: string,
   rule: SearchResult,
   jobs: ScheduleJob[],
+  providerJobs: ScheduleJob[],
 ): void {
   const routed = jobs.filter((job) => job.postcode);
+  const providerRoute = providerJobs.filter((job) => job.postcode);
   const prohibited = routed.filter((job) => job.postcode && isProhibitedPostcodePair(postcode, job.postcode));
   if (prohibited.length) {
     candidate.blockers.push("Νέα οδηγία 06/09/2026: τα 104xx και 111xx δεν συνδυάζονται. Υπάρχει στο δρομολόγιο ο ασύμβατος ΤΚ " + [...new Set(prohibited.map((job) => job.postcode))].join(", ") + ".");
     return;
   }
-  const exact = routed.filter((job) => job.postcode === postcode);
-  const direct = routed.filter((job) => job.postcode && rule.direct.some((pattern) => patternMatches(job.postcode!, pattern)));
-  const indirect = routed.filter((job) => job.postcode && rule.indirect.some((pattern) => patternMatches(job.postcode!, pattern)));
+  const exact = providerRoute.filter((job) => job.postcode === postcode);
+  const direct = providerRoute.filter((job) => job.postcode && rule.direct.some((pattern) => patternMatches(job.postcode!, pattern)));
+  const indirect = providerRoute.filter((job) => job.postcode && rule.indirect.some((pattern) => patternMatches(job.postcode!, pattern)));
   const excluded = routed.filter((job) => job.postcode && rule.excluded.some((pattern) => patternMatches(job.postcode!, pattern)));
   const incompatible = routed.filter((job) => job.postcode &&
     job.postcode !== postcode &&
@@ -164,12 +161,13 @@ function evaluateTechnician(
   postcode: string,
   rule: SearchResult,
   history: HistoricalCounts,
+  provider: SchedulingProvider,
 ): Candidate {
   const jobs = technician.jobs;
   const activationJobs = jobs.filter(isActivation);
   const otherJobs = jobs.filter((job) => !isActivation(job));
-  const novaJobs = jobs.filter(isNova);
-  const vodafoneJobs = jobs.filter(isVodafone);
+  const providerJobs = jobs.filter((job) => job.provider === provider);
+  const providerName = provider === "nova" ? "NOVA" : "Vodafone";
   const unknownProviderJobs = jobs.filter((job) => job.provider === "unknown");
   const horizontalJobs = jobs.filter(isHorizontal);
   const candidate: Candidate = {
@@ -188,15 +186,17 @@ function evaluateTechnician(
   candidate.blockers.push(...header.blockers);
   candidate.warnings.push(...header.warnings);
 
-  if (activationJobs.length >= 4) {
+  if (provider === "nova" && activationJobs.length >= 4) {
     candidate.warnings.push("Έχει ήδη 4 FTTH Activation· έλεγξε χειροκίνητα αν χωράει η νέα εργασία.");
   }
-  if (otherJobs.length >= 6) {
+  if (provider === "nova" && otherJobs.length >= 6) {
     candidate.warnings.push("Έχει ήδη 6 λοιπές εργασίες· έλεγξε χειροκίνητα αν χωράει η νέα εργασία.");
   }
 
-  if (jobs.length && !novaJobs.length) {
-    if (vodafoneJobs.length) {
+  if (jobs.length && !providerJobs.length) {
+    if (provider === "vodafone") {
+      candidate.blockers.push("Δεν έχει αναγνωρισμένη εργασία Vodafone (1-/VOD/VFS/VF ή πράσινη εργασία) στο συγκεκριμένο φύλλο.");
+    } else if (jobs.some((job) => job.provider === "vodafone")) {
       candidate.blockers.push("Έχει αναθέσεις Vodafone αλλά καμία επιβεβαιωμένη NOVA (PS/TAS) στο συγκεκριμένο φύλλο.");
     } else {
       candidate.blockers.push("Έχει αναθέσεις χωρίς επιβεβαιωμένο κωδικό NOVA PS/TAS στο συγκεκριμένο φύλλο.");
@@ -205,24 +205,24 @@ function evaluateTechnician(
     candidate.warnings.push("Υπάρχει εργασία με κενό ή άγνωστο κωδικό παρόχου· χρειάζεται οπτικός έλεγχος.");
   }
   if (horizontalJobs.length) {
-    if (!novaJobs.length) {
+    if (!providerJobs.length) {
       // The previous blocker already explains the exclusion.
     } else if (horizontalJobs.some((job) => !job.green)) {
       candidate.blockers.push("Υπάρχει Horizontal Construction χωρίς ένδειξη πράσινης συνδυαστικής/ειδικής κατασκευής.");
     } else {
-      candidate.warnings.push("Υπάρχει NOVA μαζί με πράσινη συνδυαστική/ειδική Horizontal Construction.");
+      candidate.warnings.push("Υπάρχει " + providerName + " μαζί με πράσινη συνδυαστική/ειδική Horizontal Construction.");
     }
   }
 
-  scoreRoute(candidate, postcode, rule, jobs);
+  scoreRoute(candidate, postcode, rule, jobs, providerJobs);
 
-  if ((postcode.startsWith("106") || postcode.startsWith("114")) && technician.canonicalName.includes("ΜΠΑΡΟΥΝΗΣ ΒΑΓΓΕΛΗΣ")) {
+  if (provider === "nova" && (postcode.startsWith("106") || postcode.startsWith("114")) && technician.canonicalName.includes("ΜΠΑΡΟΥΝΗΣ ΒΑΓΓΕΛΗΣ")) {
     candidate.match = "special";
     candidate.score += 500;
     candidate.reasons.unshift("Ρητός κανόνας: τα 106xx / 114xx προτιμούν τον ΜΠΑΡΟΥΝΗ ΒΑΓΓΕΛΗ.");
   }
 
-  const historical = historyCount(history, technician.name, postcode);
+  const historical = provider === "nova" ? historyCount(history, technician.name, postcode) : { exact: 0, prefix: 0 };
   if (historical.exact) {
     if (candidate.match === "empty") candidate.match = "history";
     candidate.score += Math.min(72, historical.exact * 9);
@@ -232,7 +232,7 @@ function evaluateTechnician(
     candidate.score += Math.min(28, historical.prefix * 2);
     candidate.reasons.push("Ιστορική τάση στην οικογένεια " + postcode.slice(0, 3) + "xx.");
   }
-  const manualTrend = MANUAL_TRENDS[postcode] || [];
+  const manualTrend = provider === "nova" ? MANUAL_TRENDS[postcode] || [] : [];
   if (manualTrend.some((name) => technician.canonicalName.includes(canonicalTechnicianName(name)))) {
     if (candidate.match === "empty") candidate.match = "history";
     candidate.score += 32;
@@ -241,7 +241,8 @@ function evaluateTechnician(
 
   if (!jobs.length) {
     candidate.score += 4;
-    candidate.reasons.push("Ο τεχνικός είναι κενός και μπορεί να ξεκινήσει δρομολόγιο NOVA.");
+    candidate.reasons.push("Ο τεχνικός είναι κενός· χρειάζεται χειροκίνητος έλεγχος πριν ξεκινήσει δρομολόγιο " + providerName + ".");
+    if (provider === "vodafone") candidate.warnings.push("Επιβεβαίωσε ότι ο κενός τεχνικός μπορεί να αναλάβει Vodafone.");
   }
   candidate.score += Math.max(0, 10 - jobs.length);
   candidate.eligible = candidate.blockers.length === 0;
@@ -258,16 +259,17 @@ export function recommendTechnicians(
   postcode: string,
   history: HistoricalCounts,
   resolver: (postcode: string) => SearchResult = resolvePostcode,
+  provider: SchedulingProvider = "nova",
 ): Recommendation {
   const rule = enforcePostcodeFamilySeparation(resolver(postcode));
   const evaluated = schedule.technicians
     .filter((technician) => technician.red)
-    .map((technician) => evaluateTechnician(technician, postcode, rule, history));
+    .map((technician) => evaluateTechnician(technician, postcode, rule, history, provider));
   const candidates = evaluated
     .filter((candidate) => candidate.eligible)
     .sort((first, second) => matchPriority(first.match) - matchPriority(second.match) || second.score - first.score || first.technician.canonicalName.localeCompare(second.technician.canonicalName, "el"));
   const rejected = evaluated
     .filter((candidate) => !candidate.eligible)
     .sort((first, second) => second.score - first.score);
-  return { postcode, rule, candidates, rejected };
+  return { postcode, provider, rule, candidates, rejected };
 }
