@@ -6,6 +6,7 @@
 - `provider-audit-test.ts`: αναγνώριση κωδικών παρόχων.
 - `live-sample-test.ts`: δειγματοληπτικές προτάσεις σε πραγματικά φύλλα.
 - `app-smoke.mjs`: παλαιότερος έλεγχος UI με προσομοιωμένο DOM.
+- `october-provider-test.ts`: αναζητήσεις NOVA/Vodafone στις πρώτες πέντε ημέρες Οκτωβρίου. Δέχεται το τοπικό XLSX από `SATPRAXIS_OCTOBER_WORKBOOK` ή `fixtures/satpraxis_october_2026.xlsx`. Τα ραντεβού διαβάζονται ως πρόγραμμα και δεν προστίθενται στο ιστορικό.
 
 Οι έλεγχοι TypeScript αναζητούν τα workbooks στον φάκελο `fixtures/`, ή στον φάκελο της μεταβλητής `SATPRAXIS_FIXTURES`. Ελέγξτε τις εισόδους κάθε script πριν από τη χειροκίνητη εκτέλεση. Τα workbooks και ο φάκελος fixtures αγνοούνται από το Git.
 

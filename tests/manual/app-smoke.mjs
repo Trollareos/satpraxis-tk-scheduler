@@ -44,7 +44,7 @@ class FakeElement extends FakeNode {
   scrollIntoView() {}
 }
 
-const html = await readFile(new URL("../../dist/Satpraxis_TK_Scheduler_Test_v7/Satpraxis_TK_Scheduler_Test.html", import.meta.url), "utf8");
+const html = await readFile(new URL("../../dist/Satpraxis_TK_Scheduler_Test_v9/Satpraxis_TK_Scheduler_Test.html", import.meta.url), "utf8");
 assert.match(html, /Satpraxis TK Scheduler/);
 assert.match(html, /connect-src 'self'/);
 assert.doesNotMatch(html, /chatgpt/i);
@@ -58,14 +58,15 @@ assert(script, "inline bundle is missing");
 
 const tagById = {
   "connection-status": "div", "schedule-view": "section", "tk-view": "section",
-  "appointment-form": "form", "appointment-postcode": "input", "appointment-date": "select",
+  "appointment-form": "form", "appointment-postcode": "input", "appointment-date": "select", "appointment-provider": "select",
   "recommend-button": "button",
   "refresh-indicator": "span", "schedule-result": "article", "last-refresh-note": "p",
-  "spreadsheet-settings": "details", "spreadsheet-url": "input", "reload-sheets": "button", "save-spreadsheet": "button",
+  "spreadsheet-settings": "details", "spreadsheet-url": "input", "spreadsheet-year": "input", "detect-year": "button", "reload-sheets": "button", "save-spreadsheet": "button",
   "tk-data-status": "strong", "tk-form": "form", "tk-postcode": "input", "tk-result": "article",
   "import-update": "button", "update-file": "input", toast: "div",
 };
 const elements = new Map(Object.entries(tagById).map(([id, tag]) => [id, new FakeElement(tag, id)]));
+elements.get("appointment-provider").value = "nova";
 elements.get("schedule-result").hidden = true;
 elements.get("tk-result").hidden = true;
 elements.get("tk-view").hidden = true;
